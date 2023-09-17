@@ -1,3 +1,4 @@
+//Importação de bibliotecas/frameworks
 import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
@@ -6,10 +7,12 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 class UsersController {
   async store(req, res) {
+    //Bloco try{}catch para captar possíveis erros
     try {
+      //Informações que serão recebidas no corpo da requisição
       const { name, email, password, confirm_password } = req.body;
       console.log(name, email, password, confirm_password);
-
+      //Verificando se o email já existe no banco
       const verifyemail = await prisma.user.findUnique({
         where: {
           use_email: email,
@@ -41,6 +44,7 @@ class UsersController {
           message: "A senha e a confirmação de senha não são iguais!",
         });
       }
+      //Criação de um hash para criptografar a senha
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
       const newUser = await prisma.user.create({
@@ -51,12 +55,36 @@ class UsersController {
         },
       });
 
-      return res.status(201).json({ message: "Usuário criado com sucesso!" });
+      return res
+        .status(201)
+        .json({ message: "Usuário criado com sucesso!", verifyemail });
     } catch (error) {
       console.error(error);
       return res
         .status(500)
         .json({ message: `Erro ao criar o usuário: ${error.message}` });
+    }
+  }
+  async emailRecover(req, res) {
+    try {
+      const email = req.body;
+      const result = await prisma.user.findUnique({
+        where: {
+          use_email: email,
+        },
+      });
+      if (result) {
+
+
+
+
+        
+      }
+    } catch (error) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ message: `Erro ao enviar email:${error.message}` });
     }
   }
 }

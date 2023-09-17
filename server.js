@@ -5,7 +5,7 @@ import routes from "./routes.js";
 
 const PORT = 8080;
 const HOST = "0.0.0.0";
-
+//Criação da inicialização do servidor
 const app = express();
 
 // Middleware para tratar como Buffer Bruto apenas em uma rota específica
