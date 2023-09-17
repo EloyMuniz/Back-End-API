@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
+
 class UsersController {
   async store(req, res) {
     //Bloco try{}catch para captar possíveis erros
@@ -57,7 +58,7 @@ class UsersController {
 
       return res
         .status(201)
-        .json({ message: "Usuário criado com sucesso!", verifyemail });
+        .json({ message: "Usuário criado com sucesso!", email });
     } catch (error) {
       console.error(error);
       return res
@@ -67,24 +68,116 @@ class UsersController {
   }
   async emailRecover(req, res) {
     try {
-      const email = req.body;
-      const result = await prisma.user.findUnique({
+      const { email } = req.body;
+      const search = await prisma.user.findUnique({
         where: {
           use_email: email,
         },
       });
-      if (result) {
-
-
-
-
-        
+      if (!search) {
+        return res.status(400).json({ message: "Esse email não existe!" });
       }
+      //Criação de um token de acesso 
+      const secret = process.env.SECRET;
+      const token = jwt.sign(
+        {
+          id: search._id,
+        },
+        secret,
+        {
+          expiresIn: "1h", // O token expirará em uma hora
+        }
+      );
+      await prisma.user.update({
+        where: {
+          use_email: email,
+        },
+        data: {
+          use_token: token,
+        },
+      });
+      //Configurando credenciais de envio do email
+      const transporter = nodemailer.createTransport({
+        service: "",
+        auth: {
+          user: "",
+          pass: "",
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+      //Construção do email
+      const mailOptions = {
+        from: "",
+        to: email,
+        subject: "Recuperação de Senha",
+        html: `
+        <p>Clique no link abaixo para recuperar sua senha:</p>
+        <a href="'url'/passrecover?use_token=${token}&use_email=${email}">Recuperar Senha</a>
+      `,
+      };
+      //Envio do email 
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.error(error);
+          return res.status(500).json({ message: "Erro ao enviar o email." });
+        } else {
+          return res.status(200).json({
+            token: token,
+            message: "Token enviado para o email inserido!",
+          });
+        }
+      });
     } catch (error) {
       console.error(error);
       return res
         .status(500)
         .json({ message: `Erro ao enviar email:${error.message}` });
+    }
+  }
+  async recoverPass(req, res) {
+    try {
+      const { email, token } = req.query;
+      const { password } = req.body;
+      const result = await prisma.user.findFirst({
+        where: { use_email: email },
+      });
+      if (!result) {
+        return res.status(400).json({ message: "Email inválido!" });
+      }
+
+      try {
+        const secret = process.env.SECRET;
+        const decoded = jwt.verify(token, secret);
+        const currentTime = Date.now() / 1000;
+
+        if (decoded.exp < currentTime) {
+          return res.status(401).json({ message: "Token expirado." });
+        }
+      } catch (err) {
+        return res.status(401).json({ message: "Token inválido." });
+      }
+      if (password.length < 6) {
+        return res
+          .status(400)
+          .json({ message: "A senha precisa ter 6 ou mais caracteres!" });
+      }
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      await prisma.user.update({
+        data: { use_password: passwordHash },
+        where: {
+          use_email: email,
+        },
+      });
+      return res.status(200).json({
+        message: "Senha atualizada com sucesso!",
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "Erro ao criar nova senha!" });
     }
   }
 }

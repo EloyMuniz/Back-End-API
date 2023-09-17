@@ -26,4 +26,4 @@ Além disso, este projeto incluirá:
 - [prisma](https://www.prisma.io/): ^5.3.1
 - [nodemailer](https://www.npmjs.com/package/nodemailer): ^6.9.5
 
-## Projeto em andamento!
+## Projeto finalizado!
